@@ -1,0 +1,13 @@
+-i https://pypi.tuna.tsinghua.edu.cn/simple
+pymysql
+mysql-connector-python
+yaml
+zhipuai
+python-docx
+faiss-cpu
+numpy
+jieba
+paddlepaddle
+pandas
+openpyxl
+psutil 
