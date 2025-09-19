@@ -26,9 +26,17 @@ urlpatterns = [
     path('get_all_student', login_views.get_all_student),
     path('login', platform_login.aiplatform_login),
     path('check_user', platform_login.is_ok_request),
-    path('get/projects', testcase_views.get_project_view),
-    path('create/project', testcase_views.create_project_view),
-    path('projects/<int:project_id>/upload-doc', testcase_views.upload_doc_view),
+
+    path('project/get', testcase_views.get_docs_view),
+    path('project/create', testcase_views.create_project_view),
+    path('project/update', testcase_views.update_project_view),
+    path('project/delete', testcase_views.delete_project_view),
+
+    path('doc/get', testcase_views.get_docs_view),
+    path('doc/create', testcase_views.upload_doc_view),
+    path('doc/detail', testcase_views.get_doc_detail_view),
+    path('doc/delete', testcase_views.delete_doc_view),
+
     path('testcase/get', testcase_views.get_testcases_view),
     path('testcase/detail', testcase_views.get_testcase_detail_view),
     path('testcase/update', testcase_views.update_testcase_view),
