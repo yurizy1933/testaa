@@ -27,7 +27,7 @@ urlpatterns = [
     path('login', platform_login.aiplatform_login),
     path('check_user', platform_login.is_ok_request),
 
-    path('project/get', testcase_views.get_docs_view),
+    path('project/get', testcase_views.get_project_view),
     path('project/create', testcase_views.create_project_view),
     path('project/update', testcase_views.update_project_view),
     path('project/delete', testcase_views.delete_project_view),
@@ -41,4 +41,7 @@ urlpatterns = [
     path('testcase/detail', testcase_views.get_testcase_detail_view),
     path('testcase/update', testcase_views.update_testcase_view),
     path('testcase/delete', testcase_views.delete_testcase_view),
+
+    path('ai_job/get', testcase_views.get_ai_jobs_view),
+    path('ai_job/run', testcase_views.run_ai_case_job),
 ]

@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Project, Doc, TestCase
+from .models import Project, Doc, TestCase, AiJobManagement
 
 # Register your models here.
 
@@ -75,11 +75,32 @@ class DocAdmin(admin.ModelAdmin):
         self.message_user(request, f'已将 {queryset.count()} 个文档标记为未生成用例')
     mark_as_not_generated.short_description = '标记为未生成用例'
 
+@admin.register(AiJobManagement)
+class AiJobManagementAdmin(admin.ModelAdmin):
+    list_display = ['id', 'doc', 'job_status', 'task_start_time', 'task_complete_time', 'task_fail_time', 'create_time']
+    list_filter = ['job_status', 'create_time', 'task_start_time']
+    search_fields = ['doc__filename', 'doc__project__project_name']
+    readonly_fields = ['create_time', 'update_time']
+    list_editable = ['job_status']
+    
+    fieldsets = (
+        ('基本信息', {
+            'fields': ('doc', 'job_status')
+        }),
+        ('任务时间', {
+            'fields': ('task_start_time', 'task_complete_time', 'task_fail_time')
+        }),
+        ('时间信息', {
+            'fields': ('create_time', 'update_time'),
+            'classes': ('collapse',)
+        }),
+    )
+
 @admin.register(TestCase)
 class TestCaseAdmin(admin.ModelAdmin):
-    list_display = ['id', 'title_preview', 'doc', 'project_name', 'priority', 'status', 'created_time']
-    list_filter = ['status', 'priority', 'doc__project', 'created_time']
-    search_fields = ['title', 'precondition', 'test_steps', 'expected_result', 'doc__filename']
+    list_display = ['id', 'title_preview', 'doc_id', 'job_id', 'project_name', 'priority', 'status', 'created_time']
+    list_filter = ['status', 'priority', 'created_time', 'job_id__job_status']
+    search_fields = ['title', 'precondition', 'test_steps', 'expected_result', 'doc__filename', 'job_id__id']
     readonly_fields = ['created_time', 'updated_time']
     list_editable = ['status', 'priority']
     
@@ -95,7 +116,7 @@ class TestCaseAdmin(admin.ModelAdmin):
     
     fieldsets = (
         ('基本信息', {
-            'fields': ('title', 'doc', 'priority', 'status')
+            'fields': ('title', 'doc_id', 'job_id', 'priority', 'status')
         }),
         ('测试内容', {
             'fields': ('precondition', 'test_steps', 'expected_result')

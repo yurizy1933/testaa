@@ -68,6 +68,43 @@ class Doc(models.Model):
         self.is_case_generated = True
         self.save(update_fields=['is_case_generated'])
 
+
+class AiJobManagement(models.Model):
+    """AI任务管理模型"""
+    JOB_STATUS_CHOICES = [
+        (0, '待处理'),
+        (1, '处理中'),
+        (2, '已完成'),
+    ]
+    
+    id = models.AutoField(primary_key=True)
+    job_status = models.IntegerField(
+        choices=JOB_STATUS_CHOICES,
+        default=0,
+        verbose_name='任务状态'
+    )
+    task_start_time = models.DateTimeField(verbose_name='任务开始时间', null=True, blank=True)
+    task_complete_time = models.DateTimeField(verbose_name='任务完成时间', null=True, blank=True)
+    task_fail_time = models.DateTimeField(verbose_name='任务失败时间', null=True, blank=True)
+    doc = models.ForeignKey(
+        Doc,
+        on_delete=models.CASCADE,
+        related_name='ai_jobs',
+        verbose_name='关联文档'
+    )
+    create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+
+    class Meta:
+        verbose_name = 'AI任务管理'
+        verbose_name_plural = 'AI任务管理'
+        ordering = ['-create_time']
+        db_table = 'ai_job_management'
+
+    def __str__(self):
+        return f"任务-{self.id}-{self.get_job_status_display()}"
+
+
 class TestCase(models.Model):
     """测试用例模型"""
     STATUS_CHOICES = [
@@ -99,12 +136,21 @@ class TestCase(models.Model):
         default='active',
         verbose_name='用例状态'
     )
-    doc = models.ForeignKey(
+    job_id = models.ForeignKey(
+        AiJobManagement,
+        on_delete=models.CASCADE,
+        related_name='test_cases_by_job',
+        verbose_name='关联任务',
+        null=True,
+        blank=True
+    )
+    doc_id = models.ForeignKey(
         Doc, 
         on_delete=models.CASCADE, 
         related_name='test_cases',
         verbose_name='关联文档',
-        default=''
+        null=True,
+        blank=True
     )
     created_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     updated_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
