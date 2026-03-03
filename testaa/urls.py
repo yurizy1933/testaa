@@ -44,4 +44,25 @@ urlpatterns = [
 
     path('ai_job/get', testcase_views.get_ai_jobs_view),
     path('ai_job/run', testcase_views.run_ai_case_job),
+
+    # 接口文档管理相关路由
+    path('api_doc/get', testcase_views.get_api_docs_view),
+    path('api_doc/create', testcase_views.upload_api_doc_view),
+    path('api_doc/detail', testcase_views.get_api_doc_detail_view),
+    path('api_doc/delete', testcase_views.delete_api_doc_view),
+    path('api_doc/parse', testcase_views.parse_api_doc_view),
+
+    # API接口管理相关路由
+    path('api_interface/get', testcase_views.get_api_interfaces_view),
+    path('api_interface/detail', testcase_views.get_api_interface_detail_view),
+
+    # 测试数据管理相关路由
+    path('test_data/get', testcase_views.get_test_data_view),
+    path('test_data/detail', testcase_views.get_test_data_detail_view),
+    path('test_data/create', testcase_views.create_test_data_view),
+    path('test_data/update', testcase_views.update_test_data_view),
+    path('test_data/delete', testcase_views.delete_test_data_view),
+
+    # AI生成API测试用例路由
+    path('api_test_cases/generate', testcase_views.generate_api_test_cases_view),
 ]

@@ -15,6 +15,7 @@ class Project(models.Model):
     class Meta:
         verbose_name = '项目'
         verbose_name_plural = '项目'
+
         ordering = ['-create_time']
 
     def __str__(self):
@@ -172,3 +173,89 @@ class TestCase(models.Model):
         """恢复测试用例"""
         self.status = 'active'
         self.save()
+
+
+class ApiDoc(models.Model):
+    """接口文档模型"""
+    id = models.AutoField(primary_key=True)
+    filename = models.CharField(max_length=500, verbose_name='文件名')
+    version = models.CharField(max_length=50, default='1.0.0', verbose_name='版本号')
+    file_content = models.TextField(blank=True, null=True, verbose_name='文件内容')
+    file_path = models.FileField(upload_to='api_docs/', blank=True, null=True, verbose_name='文件路径')
+    create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    project = models.ForeignKey(
+        Project,
+        on_delete=models.CASCADE,
+        related_name='api_docs',
+        verbose_name='所属项目'
+    )
+
+    class Meta:
+        verbose_name = '接口文档'
+        verbose_name_plural = '接口文档'
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return f"{self.filename} - v{self.version} - {self.project.project_name}"
+
+
+class ApiInterface(models.Model):
+    """API接口模型"""
+    METHOD_CHOICES = [
+        ('GET', 'GET'),
+        ('POST', 'POST'),
+        ('PUT', 'PUT'),
+        ('DELETE', 'DELETE'),
+        ('PATCH', 'PATCH'),
+        ('HEAD', 'HEAD'),
+        ('OPTIONS', 'OPTIONS'),
+    ]
+
+    id = models.AutoField(primary_key=True)
+    api_name = models.CharField(max_length=500, verbose_name='接口名称')
+    api_path = models.CharField(max_length=1000, blank=True, null=True, verbose_name='接口路径')
+    method = models.CharField(max_length=10, choices=METHOD_CHOICES, verbose_name='请求方法')
+    request_params = models.TextField(blank=True, null=True, verbose_name='入参')
+    response_params = models.TextField(blank=True, null=True, verbose_name='出参')
+    remark = models.TextField(blank=True, null=True, verbose_name='备注')
+    create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    api_doc = models.ForeignKey(
+        ApiDoc,
+        on_delete=models.CASCADE,
+        related_name='api_interfaces',
+        verbose_name='所属文档'
+    )
+
+    class Meta:
+        verbose_name = 'API接口'
+        verbose_name_plural = 'API接口'
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return f"{self.method} {self.api_name}"
+
+
+class TestData(models.Model):
+    """测试数据模型"""
+    id = models.AutoField(primary_key=True)
+    test_name = models.CharField(max_length=500, verbose_name='测试数据名称')
+    test_data_json = models.JSONField(verbose_name='测试数据JSON')
+    description = models.TextField(blank=True, null=True, verbose_name='描述')
+    create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
+    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
+    api_interface = models.ForeignKey(
+        ApiInterface,
+        on_delete=models.CASCADE,
+        related_name='test_data',
+        verbose_name='所属接口'
+    )
+
+    class Meta:
+        verbose_name = '测试数据'
+        verbose_name_plural = '测试数据'
+        ordering = ['-create_time']
+
+    def __str__(self):
+        return f"{self.test_name} - {self.api_interface.api_name}"
