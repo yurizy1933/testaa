@@ -1,0 +1,19 @@
+[flake8]
+max-line-length = 120
+exclude =
+    venv/,
+    .venv/,
+    __pycache__/,
+    migrations/,
+    .git/,
+    .idea/,
+    .vscode/,
+    *.egg-info/,
+    build/,
+    dist/,
+ignore =
+    E203,  # whitespace before ':' (conflicts with black)
+    W503,  # line break before binary operator (conflicts with black)
+per-file-ignores =
+    __init__.py:F401
+    settings.py:F401

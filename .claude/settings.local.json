@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(mkdir:*)",
+      "Bash(\"/d/program/django-test/testaa/ai/__init__.py\":*)",
+      "Bash(\"/d/program/django-test/testaa/ai/prompts/__init__.py\":*)",
+      "Bash(python:*)",
+      "Bash(echo:*)",
+      "mcp__web-search-prime__web_search_prime",
+      "Bash(\"D:\\\\program\\\\django-test\\\\testaa\\\\common\\\\views.py\":*)"
+    ]
+  }
+}

@@ -1,0 +1,27 @@
+# 开发依赖包
+# 安装: pip install -r requirements-dev.txt
+
+# 代码格式化
+black==23.12.1
+isort==5.13.2
+
+# 代码检查
+flake8==7.0.0
+pylint==3.0.3
+
+# Git 提交前检查
+pre-commit==3.6.0
+
+# Django 开发工具
+django-upgrade==1.15.0
+django-debug-toolbar==4.2.0
+
+# 测试工具
+pytest==7.4.3
+pytest-django==4.7.0
+pytest-cov==4.1.0
+pytest-xdist==3.5.0
+
+# 类型检查
+mypy==1.7.1
+django-stubs==4.2.7
