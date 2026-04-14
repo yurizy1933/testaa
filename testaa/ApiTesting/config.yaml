@@ -1,0 +1,24 @@
+server:
+  host: "0.0.0.0"
+  port: 5004
+  debug: false
+
+llm:
+  provider: "qwen"
+  base_url: "https://dashscope.aliyuncs.com/api/v1"
+  api_key: "sk-"
+  model: "qwen-plus"
+
+knowledge_service:
+  base_url: "http://localhost:5000"
+  kb_id: "a7195880-6904-4c5c-9d5e-1c57329ad4f5"
+  kb_api_key: "sk-qYWHrwZM06nzFPWqbde4Oy2gP3dXcj6n1Cn7yJVrD7P_m4eW"
+
+database:
+  enabled: true
+  engine: "mysql"
+  host: "106.54.234.148"
+  port: 3306
+  user: "root"
+  password: "Walker1990"
+  name: "2026testplatform"

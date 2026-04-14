@@ -1,0 +1,69 @@
+# Django
+*.pyc
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+db.sqlite3
+db.sqlite3-journal
+*.sqlite3
+
+# Media and Static
+/media
+/static
+/staticfiles
+
+# Python
+venv/
+.venv/
+env/
+ENV/
+*.egg-info/
+dist/
+build/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# IDE
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# AI
+*.index
+*.pkl
+faiss_index.*
+case_faiss_index.*
+向量库/
+documents/
+
+# 敏感信息
+.env
+.env.local
+config.local.yaml
+*.secret
+secrets.json
+
+# Logs
+*.log
+logs/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Temp files
+*.tmp
+*.bak
+*.swp
+
+# Test output
+test_output.json
+测试用例.json
+测试用例.xlsx
+*.xlsx

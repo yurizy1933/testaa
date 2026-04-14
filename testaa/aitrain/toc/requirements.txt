@@ -1,0 +1,10 @@
+python-docx==0.8.11
+zhipuai==1.0.7
+pymysql==1.1.0
+faiss-cpu==1.7.4
+numpy==1.24.3
+Pillow==10.0.0
+python-dotenv==1.0.0
+xmind==1.2.0
+pandas==1.5.3
+openpyxl==3.1.2 

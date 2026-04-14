@@ -1,0 +1,47 @@
+# 数据库配置
+MYSQL_HOST: "43.139.212.116"
+MYSQL_PORT: 3306
+MYSQL_USER: "root"
+MYSQL_PASSWORD: "aitest1234ZY"
+MYSQL_DATABASE: "vectors"
+
+# 智谱AI配置
+ZHIPUAI_API_KEY: "4198d249d529406f8b9571bc10aa2142.Qvg8SQRV9GiKweid"
+ZHIPUAI_EMBEDDING_MODEL: "embedding-2"
+ZHIPUAI_CHAT_MODEL: "glm-4"
+ZHIPUAI_BASE_URL: "https://open.bigmodel.cn/api/paas/v4"
+
+# 文件解析配置
+USE_ZHIPU_FILE_PARSER: true  # 是否使用智谱AI文件解析
+FILE_PARSER_CHUNK_SIZE: 1000  # 文件解析块大小
+FILE_PARSER_CHUNK_OVERLAP: 200  # 文件解析块重叠
+FILE_TRUNCATE_MAX_SIZE_MB: 45  # 文件截断最大大小（MB）
+
+# 向量数据库配置
+FAISS_DB_PATH: "word_vectors.faiss"
+VECTOR_DIMENSION: 1024
+
+# 文档处理配置
+WORD_DOC_PATH: "documents/"
+CHUNK_SIZE: 500  # 每个文本块的最大字符数
+CHUNK_OVERLAP: 50  # 文本块之间的重叠字符数
+MAX_PAGE_SIZE: 1000  # 每页最大处理量
+
+# 相似度搜索配置
+SIMILARITY_THRESHOLD: 0.7
+TOP_K_RESULTS: 10
+
+# 处理配置
+MAX_THREADS: 5
+MAX_WORKERS: 4  # 文档解析线程数
+REQUEST_INTERVAL: 0.5  # 请求间隔（秒）
+BATCH_SIZE_MULTIPLIER: 2  # 批量大小倍数
+
+# 句子向量配置
+MAX_SENTENCES: 10  # 最大句子数量
+MIN_SENTENCE_LENGTH: 10  # 最小句子长度（字符）
+MIN_SENTENCE_WORDS: 5  # 最小句子词数
+
+# 项目信息
+PROJECT_NAME: "Word文档RAG系统"
+PROJECT_DESC: "解析Word文档并使用RAG技术存入FAISS向量库和MySQL数据库" 

@@ -1,0 +1,74 @@
+
+from normalTest.unittestplay import TestCase, TestSuite, TestRunner, TestLoader
+
+# 定义一个测试用例
+class MathTestCase(TestCase):
+
+    def setUp(self):
+        """测试前准备"""
+        print(f"\n  Setting up {self.name}")
+        self.numbers = [1, 2, 3, 4, 5]
+
+    def tearDown(self):
+        """测试后清理"""
+        print(f"  Tearing down {self.name}")
+        self.numbers = None
+
+    def test_addition(self):
+        """测试加法"""
+        result = sum(self.numbers)
+        self.assertEqual(result, 15, "Sum should be 15")
+
+    def test_multiplication(self):
+        """测试乘法"""
+        result = 1
+        for n in self.numbers:
+            result *= n
+        self.assertEqual(result, 120, "Product should be 120")
+
+    def test_max_value(self):
+        """测试最大值"""
+        max_value = max(self.numbers)
+        self.assertEqual(max_value, 5, "Max should be 5")
+
+    def test_min_value(self):
+        """测试最小值"""
+        min_value = min(self.numbers)
+        self.assertEqual(min_value, 1, "Min should be 1")
+
+
+class StringTestCase(TestCase):
+
+    def test_string_upper(self):
+        """测试字符串大写"""
+        result = "hello".upper()
+        self.assertEqual(result, "HELLO")
+
+    def test_string_split(self):
+        """测试字符串分割"""
+        result = "a,b,c".split(',')
+        self.assertEqual(len(result), 3)
+        self.assertIn('b', result)
+
+    def test_string_strip(self):
+        """测试字符串去除空格"""
+        result = "  hello  ".strip()
+        self.assertEqual(result, "hello")
+
+
+# 运行测试
+if __name__ == "__main__":
+    # 方法1：手动创建测试套件
+    suite = TestSuite()
+    suite.add_tests(
+        MathTestCase(),
+        StringTestCase()
+    )
+
+    # 方法2：使用测试加载器
+    # loader = TestLoader()
+    # suite = loader.load_from_module(__import__(__name__))
+
+    # 运行测试
+    runner = TestRunner(verbosity=2)
+    result = runner.run(suite)
