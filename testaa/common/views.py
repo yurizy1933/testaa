@@ -192,7 +192,7 @@ def get_docs_view(request):
         project_id = request.GET.get('project_id')
         doc_type = request.GET.get('doc_type')
         file_type = request.GET.get('file_type')
-        filename = request.GET.get('filename')
+        file_name = request.GET.get('file_name')
         version = request.GET.get('version')
 
         # 构建查询条件
@@ -214,8 +214,8 @@ def get_docs_view(request):
                       'is_processed', 'create_time', 'update_time', 'project'))
 
         # 支持模糊搜索文件名
-        if filename:
-            docs = docs.filter(filename__icontains=filename)
+        if file_name:
+            docs = docs.filter(filename__icontains=file_name)
 
         # 支持精确匹配版本号
         if version:
@@ -238,7 +238,7 @@ def get_docs_view(request):
 
 @require_http_methods(['GET'])
 def get_doc_detail_view(request):
-    """获取文档详情（包含内容）"""
+    """获取文档详情（包含内容，支持翻页）"""
     try:
         doc_id = request.GET.get('id')
         if not doc_id:
@@ -247,14 +247,47 @@ def get_doc_detail_view(request):
                 'message': '缺少文档ID'
             }, status=400)
 
+        # 分页参数
+        page = int(request.GET.get('page', 1))
+        page_size = int(request.GET.get('page_size', 5000))
+
+        if page < 1:
+            page = 1
+        if page_size < 100 or page_size > 50000:
+            page_size = 5000
+
         doc = get_object_or_404(CommonDoc, id=doc_id)
         data = doc_to_dict(doc)
 
         # 如果内容为空，尝试从文件解析
         if not doc.file_content and doc.file_path:
-            data['file_content'] = doc.doc_content
+            full_content = doc.doc_content
         else:
-            data['file_content'] = doc.file_content
+            full_content = doc.file_content or ''
+
+        # 处理分页
+        total_length = len(full_content)
+        total_pages = (total_length + page_size - 1) // page_size if total_length > 0 else 1
+
+        # 计算当前页的起始和结束位置
+        start_pos = (page - 1) * page_size
+        end_pos = start_pos + page_size
+
+        # 获取当前页内容
+        page_content = full_content[start_pos:end_pos]
+
+        # 分页信息
+        pagination = {
+            'total_length': total_length,
+            'page': page,
+            'page_size': page_size,
+            'total_pages': total_pages,
+            'has_next': page < total_pages,
+            'has_prev': page > 1,
+            'page_content': page_content
+        }
+
+        data.update(pagination)
 
         return JsonResponse({
             'code': 200,
