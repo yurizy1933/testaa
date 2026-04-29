@@ -257,6 +257,8 @@ class TestData(models.Model):
         ApiInterface,
         on_delete=models.CASCADE,
         related_name='test_data',
+        null=True,
+        blank=True,
         verbose_name='所属接口'
     )
 
@@ -266,4 +268,6 @@ class TestData(models.Model):
         ordering = ['-create_time']
 
     def __str__(self):
-        return f"{self.test_name} - {self.api_interface.api_name}"
+        if self.api_interface:
+            return f"{self.test_name} - {self.api_interface.api_name}"
+        return f"{self.test_name} - 公共参数"

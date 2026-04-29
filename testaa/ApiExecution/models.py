@@ -1,33 +1,7 @@
 from django.db import models
 from django.utils import timezone
-from AITestCases.models import ApiInterface
+from common.models import ApiInterface, TestData
 
-
-class TestData(models.Model):
-    """测试数据模型"""
-    id = models.AutoField(primary_key=True)
-    test_name = models.CharField(max_length=500, verbose_name='测试数据名称')
-    test_data_json = models.JSONField(verbose_name='测试数据JSON')
-    description = models.TextField(blank=True, null=True, verbose_name='描述')
-    is_public = models.BooleanField(default=False, verbose_name='是否公共参数')
-    create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
-    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    api_interface = models.ForeignKey(
-        ApiInterface,
-        on_delete=models.CASCADE,
-        related_name='test_data',
-        null=True,
-        blank=True,
-        verbose_name='所属接口'
-    )
-
-    class Meta:
-        verbose_name = '测试数据'
-        verbose_name_plural = '测试数据'
-        ordering = ['-create_time']
-
-    def __str__(self):
-        return f"{self.test_name} - {self.api_interface.api_name}"
 
 class ApiTestCaseExecution(models.Model):
     """API 测试用例执行记录"""

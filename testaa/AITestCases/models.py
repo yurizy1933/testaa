@@ -1,41 +1,6 @@
 from django.db import models
-from common.models import Project, CommonDoc
+from common.models import Project, CommonDoc, ApiInterface
 
-class ApiInterface(models.Model):
-    """API接口模型"""
-    METHOD_CHOICES = [
-        ('GET', 'GET'),
-        ('POST', 'POST'),
-        ('PUT', 'PUT'),
-        ('DELETE', 'DELETE'),
-        ('PATCH', 'PATCH'),
-        ('HEAD', 'HEAD'),
-        ('OPTIONS', 'OPTIONS'),
-    ]
-
-    id = models.AutoField(primary_key=True)
-    api_name = models.CharField(max_length=500, verbose_name='接口名称')
-    api_path = models.CharField(max_length=1000, blank=True, null=True, verbose_name='接口路径')
-    method = models.CharField(max_length=10, choices=METHOD_CHOICES, verbose_name='请求方法')
-    request_params = models.TextField(blank=True, null=True, verbose_name='入参')
-    response_params = models.TextField(blank=True, null=True, verbose_name='出参')
-    remark = models.TextField(blank=True, null=True, verbose_name='备注')
-    create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
-    update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
-    api_doc = models.ForeignKey(
-        CommonDoc,
-        on_delete=models.CASCADE,
-        related_name='api_interfaces',
-        verbose_name='所属文档'
-    )
-
-    class Meta:
-        verbose_name = 'API接口'
-        verbose_name_plural = 'API接口'
-        ordering = ['-create_time']
-
-    def __str__(self):
-        return f"{self.method} {self.api_name}"
 
 class TestCase(models.Model):
     """测试用例模型"""
