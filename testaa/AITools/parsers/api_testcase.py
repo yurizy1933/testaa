@@ -1,7 +1,7 @@
 """
 API测试用例生成器 - 调用大模型生成接口测试用例
 """
-from AITools.core.manager import AIManager
+from AITools.llm.manager import AIManager
 from AITools.prompts.api_testcase import APITestCasePrompt
 from typing import Dict, Optional
 import logging

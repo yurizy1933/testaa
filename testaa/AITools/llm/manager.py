@@ -2,10 +2,9 @@
 AI管理器 - 统一管理AI调用
 """
 
-import json
 import hashlib
 import logging
-from typing import Dict, List, Any, Optional
+from typing import Dict, List, Optional
 from .base import AIProvider, AIResponse
 from .config import AIConfig, get_config
 
@@ -23,11 +22,10 @@ class AIManager:
 
     def _get_provider(self, provider_name: str) -> AIProvider:
         """获取提供商实例"""
-        from ..providers import get_provider_factory
+        from .providers import get_provider_factory
 
         factory = get_provider_factory(provider_name)
         api_key = self.config.get_api_key(provider_name)
-        # 传入配置中的额外参数（如果有）
         extra_kwargs = self.config.get_provider_config(provider_name)
         return factory(api_key, **extra_kwargs)
 
@@ -54,18 +52,15 @@ class AIManager:
         Returns:
             AIResponse: AI响应对象
         """
-        # 验证消息格式
         if not self.provider.validate_messages(messages):
             raise ValueError("Invalid message format")
 
-        # 使用默认模型
         if model is None:
             model = self.provider.default_model
 
         logger.info(f"Calling AI provider: {self.provider_name}, model: {model}")
 
         try:
-            # 调用AI提供商
             response = self.provider.call_chat_completion(
                 messages=messages,
                 model=model,
@@ -75,7 +70,6 @@ class AIManager:
                 **kwargs
             )
 
-            # 计算成本
             if response.tokens_used:
                 response.cost = self.provider.calculate_cost(response.tokens_used, model)
 
@@ -125,65 +119,6 @@ class AIManager:
             json_mode=json_mode,
             **kwargs
         )
-
-    def parse_json_response(
-        self,
-        response: str,
-        expected_keys: Optional[List[str]] = None
-    ) -> Dict[str, Any]:
-        """
-        解析JSON响应
-
-        Args:
-            response: AI响应文本
-            expected_keys: 期望的键列表（用于验证）
-
-        Returns:
-            Dict: 解析后的JSON对象
-        """
-        try:
-            # 尝试直接解析JSON
-            data = json.loads(response)
-
-            # 如果指定了期望的键，验证是否存在
-            if expected_keys:
-                for key in expected_keys:
-                    if key not in data:
-                        raise ValueError(f"Missing expected key: {key}")
-
-            return data
-
-        except json.JSONDecodeError:
-            # 如果直接解析失败，尝试提取JSON部分
-            return self._extract_json_from_text(response)
-
-    def _extract_json_from_text(self, text: str) -> Dict[str, Any]:
-        """从文本中提取JSON对象"""
-        import re
-
-        # 尝试提取JSON对象
-        json_pattern = r'\{.*?\}'
-        matches = re.findall(json_pattern, text, re.DOTALL)
-
-        for match in matches:
-            try:
-                data = json.loads(match)
-                return data
-            except:
-                continue
-
-        # 尝试提取JSON数组
-        array_pattern = r'\[.*?\]'
-        matches = re.findall(array_pattern, text, re.DOTALL)
-
-        for match in matches:
-            try:
-                data = json.loads(match)
-                return {"data": data}
-            except:
-                continue
-
-        return {}
 
     def switch_provider(self, provider_name: str):
         """切换提供商"""

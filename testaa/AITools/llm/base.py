@@ -6,6 +6,8 @@ from abc import ABC, abstractmethod
 from typing import Dict, List, Any, Optional
 from dataclasses import dataclass
 
+from .config import get_config
+
 
 @dataclass
 class AIResponse:
@@ -48,7 +50,6 @@ class AIProvider(ABC):
         """默认模型"""
         pass
 
-    @abstractmethod
     def call_chat_completion(
         self,
         messages: List[Dict[str, str]],
@@ -59,7 +60,7 @@ class AIProvider(ABC):
         **kwargs
     ) -> AIResponse:
         """
-        调用聊天完成接口
+        调用聊天完成接口（模板方法）
 
         Args:
             messages: 消息列表
@@ -71,6 +72,53 @@ class AIProvider(ABC):
 
         Returns:
             AIResponse: AI响应对象
+        """
+        if model is None:
+            model = self.default_model
+
+        try:
+            request_params = {
+                "model": model,
+                "messages": messages,
+                "temperature": temperature,
+                "max_tokens": max_tokens,
+            }
+
+            if json_mode:
+                self._handle_json_mode(messages, request_params, model)
+
+            request_params.update(kwargs)
+
+            response = self._client.chat.completions.create(**request_params)
+
+            content = response.choices[0].message.content
+            tokens_used = response.usage.total_tokens if hasattr(response, 'usage') else None
+
+            return AIResponse(
+                content=content,
+                model=model,
+                tokens_used=tokens_used,
+                cost=None,
+                provider=self.name,
+                raw_response=response
+            )
+
+        except Exception as e:
+            raise Exception(f"{self.name} API call failed: {str(e)}")
+
+    def _handle_json_mode(
+        self,
+        messages: List[Dict[str, str]],
+        request_params: Dict[str, Any],
+        model: str
+    ) -> None:
+        """
+        钩子方法：处理JSON模式（子类覆盖）
+
+        Args:
+            messages: 消息列表（可原地修改）
+            request_params: 请求参数字典（可原地修改）
+            model: 模型名称
         """
         pass
 
@@ -87,10 +135,9 @@ class AIProvider(ABC):
         """
         pass
 
-    @abstractmethod
     def get_cost_per_1k_tokens(self, model: str) -> float:
         """
-        获取每千token的成本
+        获取每千token的成本（默认从配置读取，子类可覆盖）
 
         Args:
             model: 模型名称
@@ -98,7 +145,8 @@ class AIProvider(ABC):
         Returns:
             float: 每千token的成本（美元）
         """
-        pass
+        config = get_config()
+        return config.get_cost(model)
 
     def calculate_cost(self, tokens: int, model: str) -> float:
         """
@@ -133,6 +181,8 @@ class AIProvider(ABC):
             if not isinstance(msg, dict):
                 return False
             if 'role' not in msg or 'content' not in msg:
+                return False
+            if msg['role'] not in ('system', 'user', 'assistant'):
                 return False
 
         return True

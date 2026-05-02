@@ -1,12 +1,13 @@
 """
 HTML文档解析器
 """
-from AITools.core.manager import AIManager
+from AITools.llm.manager import AIManager
 from ..prompts.html_parser import HTMLParserPrompt
 from typing import Dict, List
 import logging
 
 logger = logging.getLogger(__name__)
+
 
 
 class HTMLParser:
