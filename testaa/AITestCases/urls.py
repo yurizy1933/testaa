@@ -14,6 +14,9 @@ urlpatterns = [
     path('delete', caseview.delete_testcase_view),
     path('batch_delete', caseview.batch_delete_testcase_view),
 
+    # API测试用例生成
+    path('api/case/generate', views.generate_api_test_cases_view),
+
     # AI任务管理
     path('ai_job/get', views.get_ai_jobs_view),
 ]

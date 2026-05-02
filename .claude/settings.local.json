@@ -7,7 +7,18 @@
       "Bash(python:*)",
       "Bash(echo:*)",
       "mcp__web-search-prime__web_search_prime",
-      "Bash(\"D:\\\\program\\\\django-test\\\\testaa\\\\common\\\\views.py\":*)"
+      "Bash(\"D:\\\\program\\\\django-test\\\\testaa\\\\common\\\\views.py\":*)",
+      "Bash(python3 -m py_compile ApiExecution/test_data_views.py)",
+      "Bash(python3 -m py_compile ApiExecution/urls.py)",
+      "Bash(python3:*)",
+      "Bash(ls -la ApiExecution/*.py)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(find:*)",
+      "Bash(bash:*)",
+      "Bash(cat)",
+      "Read(//tmp/**)"
     ]
   }
 }

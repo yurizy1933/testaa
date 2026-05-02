@@ -11,8 +11,9 @@ from django.shortcuts import get_object_or_404
 from .models import TestCase, AiJobManagement
 from .serializers import serialize_testcase, serialize_ai_job
 from common.models import Project, Doc, ApiInterface
-#
-# logger = logging.getLogger(__name__)
+from .services import TestCaseGeneratorService
+
+logger = logging.getLogger(__name__)
 
 #
 # @csrf_exempt
@@ -79,6 +80,57 @@ from common.models import Project, Doc, ApiInterface
 #             'message': f'执行失败: {str(e)}'
 #         }, status=500)
 #
+#
+# ==================== API测试用例生成视图 ====================
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def generate_api_test_cases_view(request):
+    """
+    调用大模型生成API接口测试用例并保存到数据库
+
+    Request:
+        - api_interface_id: API接口ID（必填）
+        - ai_provider: AI提供商（可选，默认zhipu）
+        - test_data_id: 测试数据ID（可选）
+        - doc_id: 文档ID（可选，用于关联文档和创建AI任务记录）
+    """
+    try:
+        body = json.loads(request.body)
+
+        api_interface_id = body.get('api_interface_id')
+        if not api_interface_id:
+            return JsonResponse({
+                'code': 400,
+                'message': 'api_interface_id 参数不能为空'
+            }, status=400)
+
+        ai_provider = body.get('ai_provider', 'zhipu')
+        test_data_id = body.get('test_data_id')
+        doc_id = body.get('doc_id')
+
+        service = TestCaseGeneratorService()
+        result = service.generate(api_interface_id, ai_provider, test_data_id, doc_id)
+
+        return JsonResponse({
+            'code': 200,
+            'message': '生成成功',
+            'data': result
+        })
+
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'code': 400,
+            'message': '请求格式错误'
+        }, status=400)
+    except Exception as e:
+        logger.error(f"生成测试用例失败: {str(e)}", exc_info=True)
+        return JsonResponse({
+            'code': 500,
+            'message': f'生成失败: {str(e)}'
+        }, status=500)
+
+
 #
 @require_http_methods(['GET'])
 def get_ai_jobs_view(request):

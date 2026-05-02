@@ -42,22 +42,18 @@ urlpatterns = [
     path('common/doc/delete', common_views.delete_doc_view),
     path('common/doc/download', common_views.download_doc_view),
 
+    # Common模块HTML API解析路由
+    path('common/api/parse/sync', common_views.parse_html_sync_view),
+    path('common/api/parse/async', common_views.parse_html_async_view),
+    path('common/api/parse/job/status', common_views.parse_job_status_view),
+
     path('ai_job/get', testcase_views.get_ai_jobs_view),
     path('ai_job/run', testcase_views.run_ai_case_job),
-
-    path('api_doc/parse', testcase_views.parse_api_doc_view),
-
-    # API接口管理相关路由
-    path('api_interface/get', testcase_views.get_api_interfaces_view),
-    path('api_interface/detail', testcase_views.get_api_interface_detail_view),
-
-    # AI生成API测试用例路由
-    path('api_test_cases/generate', testcase_views.generate_api_test_cases_view),
 
     # 新模块路由
     # AI测试用例模块路由
     path('testcase/', include('AITestCases.urls')),
 
     # API执行模块路由
-    path('test_data/', include('ApiExecution.urls')),
+    path('apicommon/', include('ApiExecution.urls')),
 ]

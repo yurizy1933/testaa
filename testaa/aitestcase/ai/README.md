@@ -190,8 +190,9 @@ export AI_DEFAULT_PROVIDER="zhipu"
 ```
 
 ### 程序化配置
+
 ```python
-from ai.core.config import AIConfig, set_config
+from AITools.core import AIConfig, set_config
 
 # 创建自定义配置
 config = AIConfig()
@@ -234,8 +235,9 @@ set_config(config)
 3. 在 `providers/__init__.py` 中注册
 
 ```python
-from ai.core.base import AIProvider, AIResponse
+from AITools.core import AIProvider, AIResponse
 from ai.providers import register_provider
+
 
 class MyAIProvider(AIProvider):
     @property
@@ -255,6 +257,7 @@ class MyAIProvider(AIProvider):
 
     def get_cost_per_1k_tokens(self, model):
         return 0.1
+
 
 # 注册提供商
 register_provider('myai', lambda api_key, **kwargs: MyAIProvider(api_key))

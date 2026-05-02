@@ -13,11 +13,11 @@ urlpatterns = [
     # path('list', views.list_executions_view, name='list_executions'),
 
     # 测试数据管理
-    path('get', dataviews.get_test_data_list),
-    path('detail', dataviews.get_test_data_detail),
-    path('create', dataviews.create_test_data),
-    path('update', dataviews.update_test_data),
-    path('delete', dataviews.delete_test_data),
+    path('test_data/get', dataviews.get_test_data_list),
+    path('test_data/detail', dataviews.get_test_data_detail),
+    path('test_data/create', dataviews.create_test_data),
+    path('test_data/update', dataviews.update_test_data),
+    path('test_data/delete', dataviews.delete_test_data),
 
     # API接口管理
     path('api_interface/get', api_interface_views.get_api_interface_list),

@@ -229,7 +229,7 @@ class ApiInterface(models.Model):
     create_time = models.DateTimeField(auto_now_add=True, verbose_name='创建时间')
     update_time = models.DateTimeField(auto_now=True, verbose_name='更新时间')
     api_doc = models.ForeignKey(
-        ApiDoc,
+        CommonDoc,
         on_delete=models.CASCADE,
         related_name='api_interfaces',
         verbose_name='所属文档'

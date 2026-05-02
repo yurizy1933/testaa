@@ -452,3 +452,111 @@ def download_doc_view(request):
             'code': 500,
             'message': f'下载文档失败: {str(e)}'
         }, status=500)
+
+
+# ==================== HTML API解析视图 ====================
+
+from .services import DocumentParserService
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def parse_html_sync_view(request):
+    """同步解析HTML文档"""
+    try:
+        body = json.loads(request.body)
+        doc_id = body.get('doc_id')
+        ai_provider = body.get('ai_provider', 'zhipu')
+
+        if not doc_id:
+            return JsonResponse({
+                'code': 400,
+                'message': 'doc_id参数不能为空'
+            }, status=400)
+
+        # 调用解析服务
+        parser_service = DocumentParserService()
+        result = parser_service.parse_html_sync(doc_id, ai_provider)
+
+        return JsonResponse({
+            'code': 200,
+            'message': '解析成功',
+            'data': result
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'code': 400,
+            'message': '请求格式错误'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'code': 500,
+            'message': f'解析失败: {str(e)}'
+        }, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def parse_html_async_view(request):
+    """异步解析HTML文档"""
+    try:
+        body = json.loads(request.body)
+        doc_id = body.get('doc_id')
+        ai_provider = body.get('ai_provider', 'zhipu')
+
+        if not doc_id:
+            return JsonResponse({
+                'code': 400,
+                'message': 'doc_id参数不能为空'
+            }, status=400)
+
+        # 调用解析服务（TODO: 实现异步处理）
+        parser_service = DocumentParserService()
+        job_id = parser_service.parse_html_async(doc_id, ai_provider)
+
+        return JsonResponse({
+            'code': 200,
+            'message': '异步任务已创建',
+            'data': {
+                'job_id': job_id
+            }
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({
+            'code': 400,
+            'message': '请求格式错误'
+        }, status=400)
+    except Exception as e:
+        return JsonResponse({
+            'code': 500,
+            'message': f'创建异步任务失败: {str(e)}'
+        }, status=500)
+
+
+@require_http_methods(['GET'])
+def parse_job_status_view(request):
+    """查询解析任务状态"""
+    try:
+        job_id = request.GET.get('job_id')
+
+        if not job_id:
+            return JsonResponse({
+                'code': 400,
+                'message': 'job_id参数不能为空'
+            }, status=400)
+
+        # TODO: 实现任务状态查询逻辑
+        return JsonResponse({
+            'code': 200,
+            'message': '查询成功',
+            'data': {
+                'job_id': job_id,
+                'status': 'completed',
+                'progress': 100
+            }
+        })
+    except Exception as e:
+        return JsonResponse({
+            'code': 500,
+            'message': f'查询失败: {str(e)}'
+        }, status=500)
