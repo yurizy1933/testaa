@@ -44,7 +44,6 @@ INSTALLED_APPS = [
     # 现有模块（保持兼容）
     'DailyTest',
     'aitestplatformlogin',
-    'aitestcase',
 
     # 新增模块
     'common',

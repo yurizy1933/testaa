@@ -66,7 +66,7 @@ class APITestCaseGenerator:
                 system_prompt=system_prompt,
                 user_prompt=user_prompt,
                 json_mode=True,
-                max_tokens=4000
+                max_tokens=16000
             )
 
             # 解析响应

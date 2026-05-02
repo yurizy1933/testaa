@@ -1,6 +1,7 @@
 """
 文档解析服务 - 调用AITools进行HTML解析
 """
+import json
 from typing import Dict
 from AITools.parsers.html_parser import HTMLParser
 from common.models import CommonDoc, ApiInterface
@@ -82,8 +83,12 @@ class DocumentParserService:
                         api_name=interface_data.get('api_name', ''),
                         api_path=interface_data.get('api_path', ''),
                         method=interface_data.get('method', 'GET'),
-                        request_params=interface_data.get('request_params', ''),
-                        response_params=interface_data.get('response_params', ''),
+                        request_params=self._serialize_params(
+                            interface_data.get('request_params', '')
+                        ),
+                        response_params=self._serialize_params(
+                            interface_data.get('response_params', '')
+                        ),
                         remark=interface_data.get('remark', '')
                     )
                     created_count += 1
@@ -93,3 +98,14 @@ class DocumentParserService:
                     continue
 
             return created_count
+
+    @staticmethod
+    def _serialize_params(params) -> str:
+        """将参数数据序列化为JSON字符串存储"""
+        if params is None:
+            return ''
+        if isinstance(params, str):
+            return params
+        if isinstance(params, (list, dict)):
+            return json.dumps(params, ensure_ascii=False)
+        return str(params)

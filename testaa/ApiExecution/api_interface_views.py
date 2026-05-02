@@ -188,8 +188,8 @@ def create_api_interface(request):
             }, status=400)
 
         # 验证文档是否存在
-        from common.models import ApiDoc
-        api_doc = get_object_or_404(ApiDoc, id=body['api_doc_id'])
+        from common.models import CommonDoc
+        api_doc = get_object_or_404(CommonDoc, id=body['api_doc_id'])
 
         # 创建API接口
         api_interface = ApiInterface.objects.create(

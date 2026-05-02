@@ -12,11 +12,19 @@ class Migration(migrations.Migration):
     ]
 
     operations = [
-        # Remove the ApiInterface model created in migration 0002
+        # 删除 ai_testcase_jobs 表指向旧 ApiInterface 的 FK 约束
+        migrations.RunSQL(
+            sql=(
+                "ALTER TABLE `ai_testcase_jobs` "
+                "DROP FOREIGN KEY `ai_testcase_jobs_api_interface_id_9f62aa40_fk_AITestCas`"
+            ),
+            reverse_sql=migrations.RunSQL.noop,
+        ),
+        # 删除迁移 0002 创建的临时 ApiInterface 表
         migrations.DeleteModel(
             name='ApiInterface',
         ),
-        # Update the TestCase.api_interface foreign key to point to common.apiinterface
+        # 修复 TestCase.api_interface FK 指向 common.ApiInterface
         migrations.AlterField(
             model_name="testcase",
             name="api_interface",

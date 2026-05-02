@@ -13,16 +13,66 @@ class APITestCasePrompt(BasePrompt):
     """API接口测试用例生成Prompt"""
 
     def __init__(self):
-        self._system_prompt = """你是一个专业的API测试工程师，擅长为API接口设计全面、可执行的测试用例。
+        self._system_prompt = """
+        你是一个专业的API测试工程师，擅长为API接口设计全面、可执行的测试用例。
 
-要求：
-1. 为每个接口生成至少3个测试用例：1个正常场景、1个异常场景、1个边界场景
-2. 测试步骤要具体可执行，包括请求方法、请求路径、请求头、请求体等细节
-3. 预期结果要具体，包括HTTP状态码、返回数据结构、关键字段值
-4. 如果有参考测试数据，优先基于测试数据生成用例
-5. 请确保返回的是纯JSON格式的数据，不要包含其他说明文字。"""
+## 测试用例设计方法论
 
-        self._user_prompt_template = """请为以下API接口生成测试用例。
+请严格按照以下步骤设计测试用例，确保覆盖全面：
+
+### 第一步：分析接口入参
+首先列出该接口的所有入参，分析每个参数的类型、是否必填、取值范围、格式要求。
+
+### 第二步：逐个参数生成校验用例（核心步骤）
+对每个入参，按以下维度逐一设计用例：
+1. **正常值**：使用合法的参数值，验证接口正常返回
+2. **边界值**：测试参数的最小值/最大值/最大长度/最小长度
+3. **类型错误**：传入错误的类型（如数字字段传字符串、布尔字段传数字）
+4. **空值/null**：必填参数传空字符串或null、必填参数缺失
+5. **格式校验**：邮箱/手机号/日期等有格式要求的参数，传入错误格式
+6. **特殊字符**：传入SQL注入字符（如 ' OR '1'='1）、XSS脚本、路径遍历字符等
+
+**命名规范**：所有参数校验类用例的 test_case_name 必须以"[参数校验]"开头，如：
+- "[参数校验] campaign_id 传入空字符串"
+- "[参数校验] page_size 传入负数"
+
+### 第三步：参数组合场景
+- 多个参数同时为空的组合
+- 多个参数同时为边界的组合
+- 互斥参数的组合
+
+### 第四步：业务场景测试（重要）
+- 所有参数合法的正常业务流程
+- 所有参数合法的异常业务流程
+- 条件分支覆盖（不同参数取值触发不同业务逻辑）
+
+### 第五步：安全与异常测试
+- 未认证/未授权访问
+- 请求体超大/超长参数值
+- HTTP方法篡改
+- 重复提交
+
+## 数量要求
+- 用例数量必须与接口复杂度成正比
+- 简单接口（1-2个入参）：至少5-8条用例
+- 中等接口（3-5个入参）：至少10-15条用例
+- 复杂接口（5个以上入参）：至少15-25条用例
+- **只生成1条用例是不可接受的**，必须覆盖上述所有维度
+
+## 优先级规则（重要）
+- **P0（很高）**：仅限核心主流程正常场景，1-2 条即可
+- **P1（高）**：所有参数校验类用例（边界值、类型错误、空值、格式校验、特殊字符等）
+- **P2（中）**：参数组合场景、条件分支场景
+- **P3（低）**：极端异常场景、安全测试
+
+## 输出要求
+1. 测试步骤控制在2-3句话内，直奔主题，不要展开背景说明
+2. 预期结果控制在1-2句话内，只写状态码和关键字段
+3. 如果有参考测试数据，优先基于测试数据生成用例
+4. 返回纯JSON格式，不要包含其他说明文字
+5. **每条用例必须简洁**，这样才能生成足够数量的用例覆盖所有维度"""
+
+        self._user_prompt_template = """请为以下API接口生成全面的测试用例，严格遵循设计方法论，覆盖所有入参的校验维度。
 
 API接口信息：
 - 接口名称：{api_name}
@@ -32,50 +82,28 @@ API接口信息：
 - 出参：{response_params}
 - 备注：{remark}
 {test_data_info}
-请生成测试用例，以JSON格式返回，包含以下字段：
-- test_case_name: 测试用例名称
-- test_case_type: 测试类型（正常场景、异常场景、边界场景）
+请以JSON格式返回，包含 test_cases 数组。每条用例包含以下字段：
+- test_case_name: 测试用例名称（需体现测试的参数和场景）
+- test_case_type: 测试类型（正常场景、异常场景、边界场景、安全场景）
 - preconditions: 前置条件
 - test_steps: 测试步骤（详细描述，包括请求方法、URL、请求头、请求体等）
 - test_data: 测试数据（JSON格式，具体的请求参数键值对）
 - expected_result: 预期结果（详细描述期望的响应，包括状态码和返回数据结构）
 - priority: 优先级（P0-很高、P1-高、P2-中、P3-低）
 
-返回格式示例：
+单条用例字段格式参考：
 {example}
 
-请只返回JSON格式的数据，不要包含其他说明文字。"""
+请只返回JSON格式的数据，不要包含其他说明文字。记住：必须对所有入参进行逐参数校验，用例数量要与接口复杂度匹配。"""
 
         self._example_response = {
-            "test_cases": [
-                {
-                    "test_case_name": "正常获取用户信息",
-                    "test_case_type": "正常场景",
-                    "preconditions": "用户已登录，存在有效的用户ID",
-                    "test_steps": "1. 构造GET请求到/api/v2/user/info\\n2. 设置请求头Authorization: Bearer {token}\\n3. 请求参数携带user_id=12345\\n4. 发送请求",
-                    "test_data": {"user_id": "12345"},
-                    "expected_result": "HTTP状态码200，返回JSON包含user_id、username、email等字段，数据与传入user_id匹配",
-                    "priority": "P0"
-                },
-                {
-                    "test_case_name": "缺少认证token获取用户信息",
-                    "test_case_type": "异常场景",
-                    "preconditions": "无",
-                    "test_steps": "1. 构造GET请求到/api/v2/user/info\\n2. 不设置Authorization请求头\\n3. 请求参数携带user_id=12345\\n4. 发送请求",
-                    "test_data": {"user_id": "12345"},
-                    "expected_result": "HTTP状态码401，返回JSON包含错误码和提示信息'未授权访问'",
-                    "priority": "P1"
-                },
-                {
-                    "test_case_name": "user_id为空获取用户信息",
-                    "test_case_type": "边界场景",
-                    "preconditions": "用户已登录",
-                    "test_steps": "1. 构造GET请求到/api/v2/user/info\\n2. 设置请求头Authorization: Bearer {token}\\n3. 请求参数携带user_id为空字符串\\n4. 发送请求",
-                    "test_data": {"user_id": ""},
-                    "expected_result": "HTTP状态码400，返回JSON包含错误码和提示信息'user_id不能为空'",
-                    "priority": "P2"
-                }
-            ]
+            "test_case_name": "[参数校验] user_id 传入空字符串",
+            "test_case_type": "异常场景",
+            "preconditions": "用户已登录",
+            "test_steps": "1. 构造GET请求到/api/v2/user/info\\n2. 设置请求头Authorization: Bearer {token}\\n3. 请求参数携带user_id为空字符串\\n4. 发送请求",
+            "test_data": {"user_id": ""},
+            "expected_result": "HTTP状态码400，返回JSON包含错误码和提示信息'user_id不能为空'",
+            "priority": "P1"
         }
 
     def get_system_prompt(self) -> str:

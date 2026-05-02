@@ -18,7 +18,6 @@ from django.contrib import admin
 from django.urls import path, include
 from DailyTest import views as login_views
 from aitestplatformlogin import views as platform_login
-from aitestcase import views as testcase_views
 from common import views as common_views
 
 urlpatterns = [
@@ -46,9 +45,6 @@ urlpatterns = [
     path('common/api/parse/sync', common_views.parse_html_sync_view),
     path('common/api/parse/async', common_views.parse_html_async_view),
     path('common/api/parse/job/status', common_views.parse_job_status_view),
-
-    path('ai_job/get', testcase_views.get_ai_jobs_view),
-    path('ai_job/run', testcase_views.run_ai_case_job),
 
     # 新模块路由
     # AI测试用例模块路由
