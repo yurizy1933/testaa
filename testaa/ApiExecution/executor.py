@@ -177,7 +177,10 @@ class ApiTestExecutor:
             # 添加到历史记录
             self.execution_history.append(result.to_dict())
 
-            logger.info(f"API执行成功: {method} {full_url} - {response.status_code} - {duration_ms:.2f}ms")
+            if success:
+                logger.info(f"API执行成功: {method} {full_url} - {response.status_code} - {duration_ms:.2f}ms")
+            else:
+                logger.warning(f"API返回非2xx: {method} {full_url} - {response.status_code} - {duration_ms:.2f}ms")
 
             return result
 

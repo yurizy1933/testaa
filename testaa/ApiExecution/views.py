@@ -4,13 +4,14 @@ API执行模块视图层
 
 import json
 import logging
+from django.conf import settings
 from django.http import StreamingHttpResponse, JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
 from django.utils import timezone
 from django.shortcuts import get_object_or_404
 from .models import ApiTestCaseExecution
-# from .engine import TestExecutionEngine
+from .engine import TestExecutionEngine
 from .serializers import generate_run_list_from_interface, get_test_data_from_model
 from common.models import ApiInterface, TestData
 
@@ -24,11 +25,12 @@ def create_execution_view(request):
     创建执行任务
 
     Request:
-        - api_interface_id: 接口ID（必填）
-        - test_data_id: 测试数据ID（可选）
         - base_url: 基础URL（必填）
         - testpoint: 测试点（必填）
         - expectation: 预期结果（必填）
+        - run_list: 接口执行列表（可选，不传则从 api_interface_id 生成）
+        - api_interface_id: 接口ID（可选，用于生成 run_list）
+        - test_data_id: 测试数据ID（可选）
         - case_name: 用例名称（可选，默认使用接口名称）
         - precondition: 前置条件（可选）
         - ai_provider: AI提供商（可选，默认zhipu）
@@ -45,7 +47,7 @@ def create_execution_view(request):
         body = json.loads(request.body)
 
         # 验证必填字段
-        required_fields = ['api_interface_id', 'base_url', 'testpoint', 'expectation']
+        required_fields = ['base_url', 'testpoint', 'expectation']
         missing_fields = [field for field in required_fields if field not in body]
         if missing_fields:
             return JsonResponse({
@@ -54,21 +56,33 @@ def create_execution_view(request):
             }, status=400)
 
         # 获取关联对象
-        api_interface = get_object_or_404(ApiInterface, id=body['api_interface_id'])
-
+        api_interface = None
         test_data = None
+
+        if 'api_interface_id' in body:
+            api_interface = get_object_or_404(ApiInterface, id=body['api_interface_id'])
+
         if 'test_data_id' in body:
             test_data = get_object_or_404(TestData, id=body['test_data_id'])
 
-        # 生成 run_list
-        run_list = generate_run_list_from_interface(api_interface)
+        # 生成或使用传入的 run_list
+        if 'run_list' in body:
+            run_list = body['run_list']
+        elif api_interface:
+            run_list = generate_run_list_from_interface(api_interface)
+        else:
+            return JsonResponse({
+                'code': 400,
+                'message': '请提供 run_list 或 api_interface_id'
+            }, status=400)
 
         # 获取测试数据
         test_data_json = get_test_data_from_model(test_data) if test_data else {}
 
         # 创建执行记录
+        default_case_name = api_interface.api_name if api_interface else 'API测试用例'
         execution = ApiTestCaseExecution.objects.create(
-            case_name=body.get('case_name', api_interface.api_name),
+            case_name=body.get('case_name', default_case_name),
             api_interface=api_interface,
             test_data=test_data,
             base_url=body['base_url'],
@@ -106,90 +120,328 @@ def create_execution_view(request):
 
 @csrf_exempt
 @require_http_methods(['POST'])
-def execute_testcase_stream_view(request):
+def dependency_get_stream_view(request):
     """
-    流式执行测试用例
+    分析接口调用依赖（SSE 流式）
 
     Request:
-        - execution_id: 执行任务ID（必填）
+        - case_id: 用例ID（可选）
+        - api_name: 接口名称（必填）
+        - precondition: 前置条件（可选）
+        - testpoint: 测试点（必填）
+        - expectation: 预期结果（必填）
+        - ai_provider: AI提供商（可选，默认zhipu）
 
     Response:
-        SSE (Server-Sent Events) 流式响应，事件类型包括：
-        - step: 执行步骤
-        - result: 接口执行结果
+        SSE 流式响应，最终返回 {"case_id": ..., "run_list": [...]}
+    """
+    try:
+        body = json.loads(request.body)
+
+        required_fields = ['api_name', 'testpoint', 'expectation']
+        missing_fields = [f for f in required_fields if f not in body]
+        if missing_fields:
+            return JsonResponse({
+                'code': 400,
+                'message': f'缺少必填字段: {", ".join(missing_fields)}'
+            }, status=400)
+
+        engine = TestExecutionEngine(ai_provider=body.get('ai_provider', 'zhipu'))
+
+        def event_generator():
+            yield f"data: {json.dumps({'type': 'step', 'data': {'message': '正在分析接口调用依赖...'}}, ensure_ascii=False)}\n\n"
+
+            result = engine.get_api_dependency(
+                case_id=str(body.get('case_id', '')),
+                api_name=body['api_name'],
+                precondition=body.get('precondition', ''),
+                testpoint=body['testpoint'],
+                expectation=body['expectation']
+            )
+
+            if result:
+                yield f"data: {json.dumps({'type': 'result', 'data': result}, ensure_ascii=False)}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'AI 分析依赖失败，请重试'}}, ensure_ascii=False)}\n\n"
+
+            yield f"data: {json.dumps({'type': 'step_complete', 'data': {'message': '依赖分析完成'}}, ensure_ascii=False)}\n\n"
+
+        response = StreamingHttpResponse(
+            event_generator(),
+            content_type='text/event-stream'
+        )
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+        return response
+
+    except json.JSONDecodeError:
+        return JsonResponse({'code': 400, 'message': '请求格式错误'}, status=400)
+    except Exception as e:
+        logger.error(f"依赖分析失败: {str(e)}", exc_info=True)
+        return JsonResponse({'code': 500, 'message': f'依赖分析失败: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def fill_test_data_stream_view(request):
+    """
+    填充测试数据（SSE 流式）
+
+    Request:
+        - api_name: 接口名称（必填）
+        - testpoint: 测试点（必填）
+        - expectation: 预期结果（必填）
+        - dependency: 依赖分析结果（必填，dependency.get 返回的结果）
+        - test_data: 测试数据（可选，默认 {}）
+        - base_url: 基座URL（可选，默认 http://127.0.0.1:8000）
+        - case_id: 用例ID（可选）
+        - precondition: 前置条件（可选）
+        - ai_provider: AI提供商（可选，默认zhipu）
+
+    Response:
+        SSE 流式响应，最终返回 {"case_id": ..., "run_list": [...]}（带填充后的参数）
+    """
+    try:
+        body = json.loads(request.body)
+
+        required_fields = ['api_name', 'testpoint', 'expectation', 'dependency']
+        missing_fields = [f for f in required_fields if f not in body]
+        if missing_fields:
+            return JsonResponse({
+                'code': 400,
+                'message': f'缺少必填字段: {", ".join(missing_fields)}'
+            }, status=400)
+
+        engine = TestExecutionEngine(ai_provider=body.get('ai_provider', 'zhipu'))
+
+        # 解析依赖和测试数据（支持字符串或对象）
+        dependency = body['dependency']
+        if isinstance(dependency, str):
+            dependency = json.loads(dependency)
+
+        test_data = body.get('test_data', {})
+        if isinstance(test_data, str):
+            test_data = json.loads(test_data)
+
+        def event_generator():
+            yield f"data: {json.dumps({'type': 'step', 'data': {'message': '正在调用 AI 填充测试数据...'}}, ensure_ascii=False)}\n\n"
+
+            result = engine.fill_test_data(
+                case_id=str(body.get('case_id', '')),
+                api_name=body['api_name'],
+                precondition=body.get('precondition', ''),
+                testpoint=body['testpoint'],
+                expectation=body['expectation'],
+                dependency=dependency,
+                test_data=test_data,
+                base_url=body.get('base_url', 'http://127.0.0.1:8000')
+            )
+
+            if result:
+                yield f"data: {json.dumps({'type': 'result', 'data': result}, ensure_ascii=False)}\n\n"
+            else:
+                yield f"data: {json.dumps({'type': 'error', 'data': {'message': 'AI 填充数据失败，请重试'}}, ensure_ascii=False)}\n\n"
+
+            yield f"data: {json.dumps({'type': 'step_complete', 'data': {'message': '测试数据填充完成'}}, ensure_ascii=False)}\n\n"
+
+        response = StreamingHttpResponse(
+            event_generator(),
+            content_type='text/event-stream'
+        )
+        response['Cache-Control'] = 'no-cache'
+        response['X-Accel-Buffering'] = 'no'
+        return response
+
+    except json.JSONDecodeError:
+        return JsonResponse({'code': 400, 'message': '请求格式错误'}, status=400)
+    except Exception as e:
+        logger.error(f"测试数据填充失败: {str(e)}", exc_info=True)
+        return JsonResponse({'code': 500, 'message': f'填充测试数据失败: {str(e)}'}, status=500)
+
+
+@csrf_exempt
+@require_http_methods(['POST'])
+def execute_testcase_stream_view(request):
+    """
+    一键执行测试用例（全流程 SSE 流式）
+
+    Request（至少提供 api_interface_id 或 api_name）:
+        - test_case_id: 测试用例ID（推荐传入，关联执行记录到用例）
+        - api_interface_id: 接口ID（推荐，自动获取 api_name/api_path/method）
+        - api_name: 接口名称（如果没有 api_interface_id 则必填）
+        - base_url: 基础URL（必填）
+        - testpoint: 测试点（可选，默认取 api_name）
+        - expectation / expected_result: 预期结果（可选）
+        - test_data_id: 测试数据ID（可选）
+        - precondition: 前置条件（可选）
+        - title: 用例名称（可选，默认取 api_name）
+        - ai_provider: AI提供商（可选，默认 zhipu）
+
+    Response: SSE 流式，事件类型：
+        - step: 阶段进度
+        - result: 依赖分析/数据填充/接口执行/校验 结果
         - report: 执行报告
+        - complete: 全流程完成（含 execution_id）
         - error: 错误信息
     """
     try:
         body = json.loads(request.body)
-        execution_id = body.get('execution_id')
 
-        if not execution_id:
-            return JsonResponse({
-                'code': 400,
-                'message': 'execution_id 参数不能为空'
-            }, status=400)
+        # === 解析关联对象 ===
+        api_interface = None
+        test_data_obj = None
+        test_case_obj = None
 
-        # 获取执行记录
-        execution = get_object_or_404(ApiTestCaseExecution, id=execution_id)
+        if 'test_case_id' in body:
+            from AITestCases.models import TestCase as TC
+            test_case_obj = get_object_or_404(TC, id=body['test_case_id'])
 
-        # 检查状态
-        if execution.status == 'running':
-            return JsonResponse({
-                'code': 400,
-                'message': '该任务正在执行中'
-            }, status=400)
+        if 'api_interface_id' in body:
+            api_interface = get_object_or_404(ApiInterface, id=body['api_interface_id'])
+        if 'test_data_id' in body:
+            test_data_obj = get_object_or_404(TestData, id=body['test_data_id'])
 
-        # 创建引擎
-        engine = TestExecutionEngine(ai_provider=execution.ai_provider)
+        # === 推导参数（兼容 TestCase 模型字段名） ===
+        # api_name: 优先直接用，其次从 api_interface 取，最后用 title 兜底
+        api_name = body.get('api_name') or (api_interface.api_name if api_interface else None) or body.get('title', 'API测试用例')
 
-        # 更新状态为执行中
-        execution.status = 'running'
-        execution.start_time = timezone.now()
-        execution.save(update_fields=['status', 'start_time'])
+        # testpoint: 优先直接用，其次用 test_steps，最后用 api_name 兜底
+        testpoint = body.get('testpoint') or body.get('test_steps') or api_name
 
-        # 准备用例信息
-        case_info = {
-            'case_id': str(execution.id),
-            'api_name': execution.api_interface.api_name if execution.api_interface else '',
-            'precondition': execution.precondition,
-            'testpoint': execution.testpoint,
-            'expectation': execution.expectation
-        }
+        # expectation: 兼容 expected_result 字段名
+        expectation = body.get('expectation') or body.get('expected_result', '')
+
+        # title 用于展示名
+        title = body.get('title') or api_name
+
+        precondition = body.get('precondition', '')
+        base_url = (body.get('base_url') or '').strip() or getattr(settings, 'API_TEST_BASE_URL', 'http://127.0.0.1:8000')
+        case_id = body.get('case_id', '')
+        ai_provider = body.get('ai_provider', 'zhipu')
+
+        test_data_json = test_data_obj.test_data_json if test_data_obj else {}
+
+        test_data_json = test_data_obj.test_data_json if test_data_obj else {}
+
+        engine = TestExecutionEngine(ai_provider=ai_provider)
 
         def event_generator():
-            """事件生成器"""
-            try:
-                # 执行测试用例
-                final_results = []
+            execution = None
 
+            try:
+                # ================================================
+                # [1/4] 分析接口调用依赖
+                # ================================================
+                yield f"data: {json.dumps({'type': 'step', 'data': {'message': '[1/4] 正在分析接口调用依赖...'}}, ensure_ascii=False)}\n\n"
+
+                dependency = engine.get_api_dependency(
+                    case_id=str(case_id),
+                    api_name=api_name,
+                    precondition=precondition,
+                    testpoint=testpoint,
+                    expectation=expectation
+                )
+
+                if dependency:
+                    yield f"data: {json.dumps({'type': 'result', 'data': {'phase': 'dependency', 'dependency': dependency}}, ensure_ascii=False)}\n\n"
+                    # 从 dependency 中提取 run_list
+                    run_list = dependency.get('run_list', [])
+                else:
+                    yield f"data: {json.dumps({'type': 'error', 'data': {'message': '[1/4] AI 分析依赖失败，使用默认 run_list'}}, ensure_ascii=False)}\n\n"
+                    # 使用默认 run_list
+                    if api_interface:
+                        run_list = generate_run_list_from_interface(api_interface)
+                    else:
+                        run_list = [{
+                            'run_num': 1,
+                            'api_name': api_name,
+                            'api_url': api_interface.api_path if api_interface else '/',
+                            'method': api_interface.method if api_interface else 'GET',
+                            'request_body': {},
+                            'params': {},
+                            'headers': {'Content-Type': 'application/json'}
+                        }]
+
+                # ================================================
+                # [2/4] 填充测试数据
+                # ================================================
+                yield f"data: {json.dumps({'type': 'step', 'data': {'message': '[2/4] 正在填充测试数据...'}}, ensure_ascii=False)}\n\n"
+
+                filled = engine.fill_test_data(
+                    case_id=str(case_id),
+                    api_name=api_name,
+                    precondition=precondition,
+                    testpoint=testpoint,
+                    expectation=expectation,
+                    dependency=dependency or {},
+                    test_data=test_data_json,
+                    base_url=base_url
+                )
+
+                if filled:
+                    yield f"data: {json.dumps({'type': 'result', 'data': {'phase': 'fill_data', 'filled_data': filled}}, ensure_ascii=False)}\n\n"
+                    if 'run_list' in filled:
+                        run_list = filled['run_list']
+                else:
+                    yield f"data: {json.dumps({'type': 'error', 'data': {'message': '[2/4] AI 填充数据失败，使用原始参数'}}, ensure_ascii=False)}\n\n"
+
+                # ================================================
+                # 创建执行记录
+                # ================================================
+                execution = ApiTestCaseExecution.objects.create(
+                    case_name=title,
+                    test_case=test_case_obj,
+                    api_interface=api_interface,
+                    test_data=test_data_obj,
+                    base_url=base_url,
+                    run_list=run_list,
+                    ai_provider=ai_provider,
+                    precondition=precondition,
+                    testpoint=testpoint,
+                    expectation=expectation,
+                    status='running',
+                    start_time=timezone.now()
+                )
+
+                yield f"data: {json.dumps({'type': 'step', 'data': {'message': f'执行记录已创建 (ID: {execution.id})'}}, ensure_ascii=False)}\n\n"
+
+                case_info = {
+                    'case_id': str(execution.id),
+                    'api_name': api_name,
+                    'precondition': precondition,
+                    'testpoint': testpoint,
+                    'expectation': expectation
+                }
+
+                # ================================================
+                # [3/4] 执行测试
+                # ================================================
+                yield f"data: {json.dumps({'type': 'step', 'data': {'message': f'[3/4] 开始执行，共 {len(run_list)} 个接口'}}, ensure_ascii=False)}\n\n"
+
+                final_results = []
                 for event in engine.execute_testcase(
-                    run_list=execution.run_list,
-                    test_data=execution.test_data.test_data_json if execution.test_data else {},
-                    base_url=execution.base_url,
+                    run_list=run_list,
+                    test_data=test_data_json,
+                    base_url=base_url,
                     case_info=case_info
                 ):
-                    # 发送事件
                     yield f"data: {json.dumps(event, ensure_ascii=False)}\n\n"
 
-                    # 收集结果
                     if event['type'] == 'result':
                         final_results.append(event['data'])
                     elif event['type'] == 'report':
-                        # 保存执行结果
                         execution.execution_results = event['data']
                         execution.end_time = timezone.now()
                         execution.status = 'completed'
                         execution.save()
-
-                        # 更新统计信息
                         execution.update_statistics()
 
-                # 如果没有错误，执行 AI 校验
-                if final_results and execution.status == 'completed':
-                    yield f"data: {json.dumps({'type': 'step', 'data': {'message': '开始 AI 校验...'}}, ensure_ascii=False)}\n\n"
+                # ================================================
+                # [4/4] AI 校验
+                # ================================================
+                if final_results:
+                    yield f"data: {json.dumps({'type': 'step', 'data': {'message': '[4/4] 正在 AI 校验...'}}, ensure_ascii=False)}\n\n"
 
-                    validation_results = []
                     for validation_event in engine.validate_testcase(
                         case_info=case_info,
                         execution_results=final_results
@@ -197,43 +449,33 @@ def execute_testcase_stream_view(request):
                         yield f"data: {json.dumps(validation_event, ensure_ascii=False)}\n\n"
 
                         if validation_event['type'] == 'result':
-                            validation_results.append(validation_event['data'])
+                            execution.validation_result = validation_event['data']
+                            execution.save(update_fields=['validation_result'])
 
-                    # 保存校验结果
-                    if validation_results:
-                        execution.validation_result = validation_results[0]
-                        execution.save(update_fields=['validation_result'])
+                # 完成
+                yield f"data: {json.dumps({'type': 'complete', 'data': {'execution_id': execution.id, 'status': execution.status}}, ensure_ascii=False)}\n\n"
 
             except Exception as e:
-                # 发生异常，更新状态
-                execution.status = 'failed'
-                execution.end_time = timezone.now()
-                execution.save(update_fields=['status', 'end_time'])
+                logger.exception('全流程执行异常')
+                if execution:
+                    execution.status = 'failed'
+                    execution.end_time = timezone.now()
+                    execution.save(update_fields=['status', 'end_time'])
+                yield f"data: {json.dumps({'type': 'error', 'data': {'message': f'执行失败：{str(e)}'}}, ensure_ascii=False)}\n\n"
 
-                # 发送错误事件
-                yield f"data: {json.dumps({'type': 'error', 'data': {'message': str(e)}}, ensure_ascii=False)}\n\n"
-
-        # 返回流式响应
         response = StreamingHttpResponse(
             event_generator(),
             content_type='text/event-stream'
         )
         response['Cache-Control'] = 'no-cache'
         response['X-Accel-Buffering'] = 'no'
-
         return response
 
     except json.JSONDecodeError:
-        return JsonResponse({
-            'code': 400,
-            'message': '请求格式错误'
-        }, status=400)
+        return JsonResponse({'code': 400, 'message': '请求格式错误'}, status=400)
     except Exception as e:
         logger.error(f"执行测试用例失败: {str(e)}", exc_info=True)
-        return JsonResponse({
-            'code': 500,
-            'message': f'执行失败: {str(e)}'
-        }, status=500)
+        return JsonResponse({'code': 500, 'message': f'执行失败: {str(e)}'}, status=500)
 
 
 @require_http_methods(['GET'])
@@ -266,6 +508,7 @@ def get_execution_view(request):
             'data': {
                 'id': execution.id,
                 'case_name': execution.case_name,
+                'test_case_id': execution.test_case_id,
                 'api_interface_name': execution.api_interface.api_name if execution.api_interface else None,
                 'test_data_name': execution.test_data.test_name if execution.test_data else None,
                 'base_url': execution.base_url,
@@ -296,6 +539,7 @@ def list_executions_view(request):
     Query Parameters:
         - status: 状态过滤（可选）
         - api_interface_id: 接口ID过滤（可选）
+        - test_case_id: 测试用例ID过滤（可选）
         - page: 页码（可选，默认1）
         - page_size: 每页数量（可选，默认10）
 
@@ -309,6 +553,7 @@ def list_executions_view(request):
         # 查询参数
         status_filter = request.GET.get('status')
         api_interface_id = request.GET.get('api_interface_id')
+        test_case_id = request.GET.get('test_case_id')
 
         # 构建查询
         query = {}
@@ -316,6 +561,8 @@ def list_executions_view(request):
             query['status'] = status_filter
         if api_interface_id:
             query['api_interface_id'] = api_interface_id
+        if test_case_id:
+            query['test_case_id'] = test_case_id
 
         executions = ApiTestCaseExecution.objects.filter(**query).order_by('-create_time')
 
@@ -332,6 +579,7 @@ def list_executions_view(request):
             data.append({
                 'id': exec.id,
                 'case_name': exec.case_name,
+                'test_case_id': exec.test_case_id,
                 'api_interface_name': exec.api_interface.api_name if exec.api_interface else None,
                 'status': exec.status,
                 'total_interfaces': exec.total_interfaces,

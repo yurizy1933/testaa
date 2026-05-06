@@ -135,6 +135,9 @@ AUTH_PASSWORD_VALIDATORS = [
 ]
 
 
+# 测试执行默认目标地址（前端传入 base_url 时可覆盖）
+API_TEST_BASE_URL = 'https://partner.shopeemobile.com/'
+
 # Internationalization
 # https://docs.djangoproject.com/en/4.2/topics/i18n/
 

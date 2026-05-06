@@ -16,13 +16,23 @@ class ApiTestCaseExecution(models.Model):
     id = models.AutoField(primary_key=True)
     case_name = models.CharField(max_length=500, verbose_name='用例名称')
 
+    # 关联测试用例
+    test_case = models.ForeignKey(
+        'AITestCases.TestCase',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='executions',
+        verbose_name='关联测试用例'
+    )
+
     # 关联接口
     api_interface = models.ForeignKey(
         ApiInterface,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
-        related_name='executions',
+        related_name='api_executions',
         verbose_name='关联接口'
     )
 

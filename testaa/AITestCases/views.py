@@ -164,6 +164,7 @@ def get_ai_jobs_view(request):
 
         # 列表查询
         project_id = request.GET.get('project_id')
+        doc_type = request.GET.get('doc_type')
         status_filter = request.GET.get('status')
 
         query = {}
@@ -171,6 +172,9 @@ def get_ai_jobs_view(request):
         if project_id:
             doc_ids = CommonDoc.objects.filter(project_id=project_id).values_list('id', flat=True)
             query['doc_id__in'] = doc_ids
+
+        if doc_type:
+            query['doc__doc_type'] = doc_type
 
         if status_filter:
             status_map = {'pending': 0, 'processing': 1, 'completed': 2}

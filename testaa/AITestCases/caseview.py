@@ -3,6 +3,7 @@
 """
 
 import json
+from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -31,14 +32,31 @@ def serialize_testcase(testcase):
     if testcase.doc_id:
         data['doc_id'] = testcase.doc_id.id
         data['doc_filename'] = testcase.doc_id.filename
+        data['doc_type'] = testcase.doc_id.doc_type
 
     if testcase.api_interface:
         data['api_interface_id'] = testcase.api_interface.id
         data['api_interface_name'] = testcase.api_interface.api_name
+        data['api_path'] = testcase.api_interface.api_path
+        data['method'] = testcase.api_interface.method
+        data['base_url'] = getattr(settings, 'API_TEST_BASE_URL', 'http://127.0.0.1:8000')
 
     if testcase.job_id:
         data['job_id'] = testcase.job_id.id
         data['job_status'] = testcase.job_id.job_status
+
+    # 最新执行记录
+    latest_execution = testcase.executions.order_by('-create_time').first()
+    if latest_execution:
+        data['latest_execution'] = {
+            'execution_id': latest_execution.id,
+            'status': latest_execution.status,
+            'total_interfaces': latest_execution.total_interfaces,
+            'success_count': latest_execution.success_count,
+            'failed_count': latest_execution.failed_count,
+            'passed': latest_execution.validation_result.get('passed') if latest_execution.validation_result else None,
+            'create_time': latest_execution.create_time.strftime('%Y-%m-%d %H:%M:%S'),
+        }
 
     return data
 
@@ -144,6 +162,7 @@ def get_testcases_view(request):
         # 查询参数
         project_id = request.GET.get('project_id')
         doc_id = request.GET.get('doc_id')
+        doc_type = request.GET.get('doc_type')
         api_interface_id = request.GET.get('api_interface_id')
         job_id = request.GET.get('job_id')
         status_filter = request.GET.get('status')
@@ -160,6 +179,9 @@ def get_testcases_view(request):
 
         if doc_id:
             query['doc_id'] = doc_id
+
+        if doc_type:
+            query['doc_id__doc_type'] = doc_type
 
         if api_interface_id:
             query['api_interface_id'] = api_interface_id

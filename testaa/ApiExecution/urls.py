@@ -6,11 +6,15 @@ from django.urls import path
 from . import views, dataviews, api_interface_views
 
 urlpatterns = [
-    # 执行记录管理
+    # === 核心接口 ===
+    path('apirun/execute', views.execute_testcase_stream_view),
+    path('apirun/get', views.get_execution_view),
+    path('apirun/list', views.list_executions_view),
+
+    # === 调试接口（按需取消注释） ===
+    # path('dependency', views.dependency_get_stream_view, name='dependency_get'),
+    # path('fill_data', views.fill_test_data_stream_view, name='fill_test_data'),
     # path('create', views.create_execution_view, name='create_execution'),
-    # path('execute', views.execute_testcase_stream_view, name='execute_testcase'),
-    # path('get', views.get_execution_view, name='get_execution'),
-    # path('list', views.list_executions_view, name='list_executions'),
 
     # 测试数据管理
     path('test_data/get', dataviews.get_test_data_list),
