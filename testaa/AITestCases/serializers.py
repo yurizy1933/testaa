@@ -43,13 +43,21 @@ def serialize_ai_job(job: AiJobManagement) -> Dict[str, Any]:
     Returns:
         序列化后的字典
     """
+    doc = job.doc
+    project = doc.project if doc else None
+    doc_type = doc.doc_type if doc else None
+    job_type = 'api' if doc_type == 'api' else 'doc' if doc_type == 'prd' else doc_type
+
     return {
         'id': job.id,
         'job_status': job.job_status,
         'job_status_display': job.get_job_status_display(),
         'doc_id': job.doc_id,
-        'doc_type': job.doc.doc_type if job.doc else None,
-        'doc_filename': job.doc.filename if job.doc else None,
+        'doc_type': doc_type,
+        'job_type': job_type,
+        'doc_filename': doc.filename if doc else None,
+        'project_id': project.id if project else None,
+        'project_name': project.project_name if project else None,
         'task_start_time': job.task_start_time.strftime('%Y-%m-%d %H:%M:%S') if job.task_start_time else None,
         'task_complete_time': job.task_complete_time.strftime('%Y-%m-%d %H:%M:%S') if job.task_complete_time else None,
         'task_fail_time': job.task_fail_time.strftime('%Y-%m-%d %H:%M:%S') if job.task_fail_time else None,

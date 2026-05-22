@@ -4,6 +4,7 @@ API接口管理视图层
 
 import json
 import logging
+from django.conf import settings
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_http_methods
@@ -12,6 +13,33 @@ from django.shortcuts import get_object_or_404
 from common.models import ApiInterface
 
 logger = logging.getLogger(__name__)
+
+
+def serialize_api_interface(api_interface):
+    """序列化 API 接口，补齐前端列表需要的项目、文档和基础地址信息"""
+    api_doc = api_interface.api_doc
+    project = api_doc.project if api_doc else None
+    base_url = getattr(settings, 'API_TEST_BASE_URL', 'http://127.0.0.1:8000')
+
+    return {
+        'id': api_interface.id,
+        'api_name': api_interface.api_name,
+        'api_path': api_interface.api_path,
+        'method': api_interface.method,
+        'request_params': api_interface.request_params,
+        'response_params': api_interface.response_params,
+        'remark': api_interface.remark,
+        'api_doc_id': api_doc.id if api_doc else None,
+        'doc_id': api_doc.id if api_doc else None,
+        'api_doc_filename': api_doc.filename if api_doc else None,
+        'api_doc_name': api_doc.filename if api_doc else None,
+        'doc_filename': api_doc.filename if api_doc else None,
+        'project_id': project.id if project else None,
+        'project_name': project.project_name if project else None,
+        'base_url': base_url,
+        'create_time': api_interface.create_time.strftime('%Y-%m-%d %H:%M:%S') if api_interface.create_time else None,
+        'update_time': api_interface.update_time.strftime('%Y-%m-%d %H:%M:%S') if api_interface.update_time else None,
+    }
 
 
 @require_http_methods(['GET'])
@@ -37,6 +65,9 @@ def get_api_interface_list(request):
         api_doc_id = request.GET.get('api_doc_id')
         method = request.GET.get('method')
         api_name = request.GET.get('api_name')
+        api_path = request.GET.get('api_path')
+        project_name = request.GET.get('project_name')
+        api_doc_name = request.GET.get('api_doc_name')
 
         # 构建查询
         query = {}
@@ -45,11 +76,17 @@ def get_api_interface_list(request):
         if method:
             query['method'] = method
 
-        api_interface_list = ApiInterface.objects.filter(**query)
+        api_interface_list = ApiInterface.objects.filter(**query).select_related('api_doc', 'api_doc__project')
 
         # 名称模糊搜索
         if api_name:
             api_interface_list = api_interface_list.filter(api_name__icontains=api_name)
+        if api_path:
+            api_interface_list = api_interface_list.filter(api_path__icontains=api_path)
+        if project_name:
+            api_interface_list = api_interface_list.filter(api_doc__project__project_name__icontains=project_name)
+        if api_doc_name:
+            api_interface_list = api_interface_list.filter(api_doc__filename__icontains=api_doc_name)
 
         # 按创建时间倒序
         api_interface_list = api_interface_list.order_by('-create_time')
@@ -61,21 +98,7 @@ def get_api_interface_list(request):
         paginator = Paginator(api_interface_list, page_size)
         page_obj = paginator.get_page(page)
 
-        data = []
-        for item in page_obj:
-            data.append({
-                'id': item.id,
-                'api_name': item.api_name,
-                'api_path': item.api_path,
-                'method': item.method,
-                'request_params': item.request_params,
-                'response_params': item.response_params,
-                'remark': item.remark,
-                'api_doc_id': item.api_doc.id if item.api_doc else None,
-                'api_doc_filename': item.api_doc.filename if item.api_doc else None,
-                'create_time': item.create_time.strftime('%Y-%m-%d %H:%M:%S') if item.create_time else None,
-                'update_time': item.update_time.strftime('%Y-%m-%d %H:%M:%S') if item.update_time else None,
-            })
+        data = [serialize_api_interface(item) for item in page_obj]
 
         return JsonResponse({
             'code': 200,
@@ -119,24 +142,15 @@ def get_api_interface_detail(request):
                 'message': 'id 参数不能为空'
             }, status=400)
 
-        api_interface = get_object_or_404(ApiInterface, id=api_interface_id)
+        api_interface = get_object_or_404(
+            ApiInterface.objects.select_related('api_doc', 'api_doc__project'),
+            id=api_interface_id
+        )
 
         return JsonResponse({
             'code': 200,
             'message': '获取成功',
-            'data': {
-                'id': api_interface.id,
-                'api_name': api_interface.api_name,
-                'api_path': api_interface.api_path,
-                'method': api_interface.method,
-                'request_params': api_interface.request_params,
-                'response_params': api_interface.response_params,
-                'remark': api_interface.remark,
-                'api_doc_id': api_interface.api_doc.id if api_interface.api_doc else None,
-                'api_doc_filename': api_interface.api_doc.filename if api_interface.api_doc else None,
-                'create_time': api_interface.create_time.strftime('%Y-%m-%d %H:%M:%S') if api_interface.create_time else None,
-                'update_time': api_interface.update_time.strftime('%Y-%m-%d %H:%M:%S') if api_interface.update_time else None,
-            }
+            'data': serialize_api_interface(api_interface)
         })
 
     except Exception as e:

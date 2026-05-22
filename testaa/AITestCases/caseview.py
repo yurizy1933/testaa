@@ -16,6 +16,16 @@ from common.models import CommonDoc, Project
 
 def serialize_testcase(testcase):
     """序列化测试用例对象"""
+    project = None
+    is_api_case = False
+
+    if testcase.api_interface:
+        is_api_case = True
+        if testcase.api_interface.api_doc:
+            project = testcase.api_interface.api_doc.project
+    elif testcase.doc_id:
+        project = testcase.doc_id.project
+
     data = {
         'id': testcase.id,
         'title': testcase.title,
@@ -24,6 +34,9 @@ def serialize_testcase(testcase):
         'expected_result': testcase.expected_result,
         'priority': testcase.priority,
         'status': testcase.status,
+        'case_type': 'api' if is_api_case else 'doc',
+        'project_id': project.id if project else None,
+        'project_name': project.project_name if project else None,
         'created_time': testcase.created_time.strftime('%Y-%m-%d %H:%M:%S') if testcase.created_time else None,
         'updated_time': testcase.updated_time.strftime('%Y-%m-%d %H:%M:%S') if testcase.updated_time else None,
     }
@@ -32,11 +45,13 @@ def serialize_testcase(testcase):
     if testcase.doc_id:
         data['doc_id'] = testcase.doc_id.id
         data['doc_filename'] = testcase.doc_id.filename
+        data['doc_name'] = testcase.doc_id.filename
         data['doc_type'] = testcase.doc_id.doc_type
 
     if testcase.api_interface:
         data['api_interface_id'] = testcase.api_interface.id
         data['api_interface_name'] = testcase.api_interface.api_name
+        data['api_name'] = testcase.api_interface.api_name
         data['api_path'] = testcase.api_interface.api_path
         data['method'] = testcase.api_interface.method
         data['base_url'] = getattr(settings, 'API_TEST_BASE_URL', 'http://127.0.0.1:8000')
@@ -163,6 +178,7 @@ def get_testcases_view(request):
         project_id = request.GET.get('project_id')
         doc_id = request.GET.get('doc_id')
         doc_type = request.GET.get('doc_type')
+        case_type = request.GET.get('case_type')
         api_interface_id = request.GET.get('api_interface_id')
         job_id = request.GET.get('job_id')
         status_filter = request.GET.get('status')
@@ -183,6 +199,11 @@ def get_testcases_view(request):
         if doc_type:
             query['doc_id__doc_type'] = doc_type
 
+        if case_type == 'api':
+            query['api_interface__isnull'] = False
+        elif case_type == 'doc':
+            query['api_interface__isnull'] = True
+
         if api_interface_id:
             query['api_interface_id'] = api_interface_id
 
@@ -195,7 +216,14 @@ def get_testcases_view(request):
         if priority_filter:
             query['priority'] = priority_filter
 
-        testcases = TestCase.objects.filter(**query)
+        testcases = TestCase.objects.filter(**query).select_related(
+            'doc_id',
+            'doc_id__project',
+            'api_interface',
+            'api_interface__api_doc',
+            'api_interface__api_doc__project',
+            'job_id'
+        )
 
         # 关键词搜索
         if keyword:

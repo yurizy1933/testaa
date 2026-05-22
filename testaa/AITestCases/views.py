@@ -155,7 +155,7 @@ def get_ai_jobs_view(request):
 
         # 查询单个任务状态
         if job_id:
-            job = get_object_or_404(AiJobManagement, id=job_id)
+            job = get_object_or_404(AiJobManagement.objects.select_related('doc', 'doc__project'), id=job_id)
             return JsonResponse({
                 'code': 200,
                 'message': '获取成功',
@@ -164,8 +164,12 @@ def get_ai_jobs_view(request):
 
         # 列表查询
         project_id = request.GET.get('project_id')
+        doc_id = request.GET.get('doc_id')
         doc_type = request.GET.get('doc_type')
+        job_type = request.GET.get('job_type')
+        doc_name = request.GET.get('doc_name')
         status_filter = request.GET.get('status')
+        job_status = request.GET.get('job_status')
 
         query = {}
 
@@ -173,14 +177,31 @@ def get_ai_jobs_view(request):
             doc_ids = CommonDoc.objects.filter(project_id=project_id).values_list('id', flat=True)
             query['doc_id__in'] = doc_ids
 
-        if doc_type:
-            query['doc__doc_type'] = doc_type
+        if doc_id:
+            query['doc_id'] = doc_id
 
-        if status_filter:
+        normalized_doc_type = doc_type
+        if not normalized_doc_type and job_type:
+            normalized_doc_type = 'prd' if job_type == 'doc' else job_type
+
+        if normalized_doc_type:
+            query['doc__doc_type'] = normalized_doc_type
+
+        if doc_name:
+            query['doc__filename__icontains'] = doc_name
+
+        if job_status not in (None, ''):
+            query['job_status'] = job_status
+        elif status_filter:
             status_map = {'pending': 0, 'processing': 1, 'completed': 2}
-            query['job_status'] = status_map.get(status_filter.lower())
+            mapped_status = status_map.get(status_filter.lower()) if not status_filter.isdigit() else int(status_filter)
+            if mapped_status is not None:
+                query['job_status'] = mapped_status
 
-        jobs = AiJobManagement.objects.filter(**query).order_by('-create_time')
+        jobs = (AiJobManagement.objects
+                .filter(**query)
+                .select_related('doc', 'doc__project')
+                .order_by('-create_time'))
 
         # 分页
         page = int(request.GET.get('page', 1))
@@ -210,4 +231,3 @@ def get_ai_jobs_view(request):
             'code': 500,
             'message': f'获取失败: {str(e)}'
         }, status=500)
-

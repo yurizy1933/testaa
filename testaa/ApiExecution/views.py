@@ -18,6 +18,23 @@ from common.models import ApiInterface, TestData
 logger = logging.getLogger(__name__)
 
 
+def _duration_ms(execution):
+    """优先使用统计耗时，缺失时用开始/结束时间推算。"""
+    if execution.total_duration_ms:
+        return int(execution.total_duration_ms)
+    if execution.start_time and execution.end_time:
+        return int((execution.end_time - execution.start_time).total_seconds() * 1000)
+    return None
+
+
+def _duration_display(duration_ms):
+    if duration_ms is None:
+        return '-'
+    if duration_ms >= 1000:
+        return f'{duration_ms / 1000:.2f}s'
+    return f'{duration_ms}ms'
+
+
 @csrf_exempt
 @require_http_methods(['POST'])
 def create_execution_view(request):
@@ -500,7 +517,11 @@ def get_execution_view(request):
                 'message': 'execution_id 参数不能为空'
             }, status=400)
 
-        execution = get_object_or_404(ApiTestCaseExecution, id=execution_id)
+        execution = get_object_or_404(
+            ApiTestCaseExecution.objects.select_related('test_case', 'api_interface', 'test_data'),
+            id=execution_id
+        )
+        duration_ms = _duration_ms(execution)
 
         return JsonResponse({
             'code': 200,
@@ -518,8 +539,13 @@ def get_execution_view(request):
                 'total_interfaces': execution.total_interfaces,
                 'success_count': execution.success_count,
                 'failed_count': execution.failed_count,
+                'duration_ms': duration_ms,
+                'duration_display': _duration_display(duration_ms),
                 'duration_seconds': execution.duration_seconds,
+                'created_at': execution.create_time.strftime('%Y-%m-%d %H:%M:%S'),
                 'create_time': execution.create_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'start_time': execution.start_time.strftime('%Y-%m-%d %H:%M:%S') if execution.start_time else None,
+                'end_time': execution.end_time.strftime('%Y-%m-%d %H:%M:%S') if execution.end_time else None,
             }
         })
 
@@ -554,6 +580,7 @@ def list_executions_view(request):
         status_filter = request.GET.get('status')
         api_interface_id = request.GET.get('api_interface_id')
         test_case_id = request.GET.get('test_case_id')
+        case_name = request.GET.get('case_name')
 
         # 构建查询
         query = {}
@@ -564,7 +591,13 @@ def list_executions_view(request):
         if test_case_id:
             query['test_case_id'] = test_case_id
 
-        executions = ApiTestCaseExecution.objects.filter(**query).order_by('-create_time')
+        executions = (ApiTestCaseExecution.objects
+                      .filter(**query)
+                      .select_related('test_case', 'api_interface')
+                      .order_by('-create_time'))
+
+        if case_name:
+            executions = executions.filter(case_name__icontains=case_name)
 
         # 分页
         page = int(request.GET.get('page', 1))
@@ -575,18 +608,25 @@ def list_executions_view(request):
         page_obj = paginator.get_page(page)
 
         data = []
-        for exec in page_obj:
+        for execution in page_obj:
+            duration_ms = _duration_ms(execution)
             data.append({
-                'id': exec.id,
-                'case_name': exec.case_name,
-                'test_case_id': exec.test_case_id,
-                'api_interface_name': exec.api_interface.api_name if exec.api_interface else None,
-                'status': exec.status,
-                'total_interfaces': exec.total_interfaces,
-                'success_count': exec.success_count,
-                'failed_count': exec.failed_count,
-                'duration_seconds': exec.duration_seconds,
-                'create_time': exec.create_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'id': execution.id,
+                'case_name': execution.case_name,
+                'test_case_id': execution.test_case_id,
+                'api_interface_name': execution.api_interface.api_name if execution.api_interface else None,
+                'case_type': 'api' if execution.api_interface_id else 'doc',
+                'status': execution.status,
+                'total_interfaces': execution.total_interfaces,
+                'success_count': execution.success_count,
+                'failed_count': execution.failed_count,
+                'duration_ms': duration_ms,
+                'duration_display': _duration_display(duration_ms),
+                'duration_seconds': execution.duration_seconds,
+                'created_at': execution.create_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'create_time': execution.create_time.strftime('%Y-%m-%d %H:%M:%S'),
+                'start_time': execution.start_time.strftime('%Y-%m-%d %H:%M:%S') if execution.start_time else None,
+                'end_time': execution.end_time.strftime('%Y-%m-%d %H:%M:%S') if execution.end_time else None,
             })
 
         return JsonResponse({
@@ -607,4 +647,3 @@ def list_executions_view(request):
             'code': 500,
             'message': f'获取失败: {str(e)}'
         }, status=500)
-
